@@ -37,6 +37,7 @@ class Node(object):
             assert self.type=='R', 'unknown node type'
             if len(self.remain_rooms) == 0:
                 self.terminal = True
+                self.complete()
             else:
                 self.terminal = False
                 self.fetch_children()
@@ -199,6 +200,35 @@ class Node(object):
 
         return new_state
 
+    def complete(self):
+        # complete horizontal
+        for x in range(0, self.col-1):
+            start = None
+            for y in range(self.row-1, -1, -1):
+                if self.state[y][x] != 0 and start==None:
+                    start = y
+                    value = self.state[y][x]
+
+                if start != None:
+                    if value != self.state[y][x]:
+                        end = y
+                        if (self.state[end+1:start+1,x+1]==0).all():
+                            self.state[end + 1:start + 1,x+1] = value
+
+                        break
+
+        # complete vertically
+        for x in range(0, self.col):
+            for y in range(0, self.row):
+                if self.state[y][x] == 0:
+                    value = self.state[y-1][x]
+                    assert value!=0, 'vertical fill value=0'
+                    self.state[y:self.row, x] = value
+                    break
+
+        assert (self.state[:]!=0).all(), 'still have empty space'
+
+        return
 
 
 

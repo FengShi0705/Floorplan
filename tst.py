@@ -1,24 +1,47 @@
 import networkx as nx
+import numpy as np
 
 
-def node_match(a,b):
-    if a['label']==b['label']:
-        return True
-    else:
-        return False
+def tst_complete():
+    state=np.array([
+        [1,2,2,3,4,4],
+        [1,6,0,3,5,0],
+        [0,6,0,3,0,0]
+    ])
 
-a=nx.Graph()
-for n in range(1,4):
-    a.add_node(n,label=n)
+    row, col = state.shape
+    print(state)
+
+    # complete horizontal
+    for x in range(0, col - 1):
+        start = None
+        for y in range(row - 1, -1, -1):
+            if state[y][x] != 0 and start == None:
+                start = y
+                value = state[y][x]
+
+            if start != None:
+                if value != state[y][x]:
+                    end = y
+                    if (state[end + 1:start + 1, x + 1] == 0).all():
+                        state[end + 1:start + 1, x + 1] = value
+
+                    break
+
+    # complete vertically
+    for x in range(0, col):
+        for y in range(0, row):
+            if state[y][x] == 0:
+                value = state[y - 1][x]
+                assert value != 0, 'vertical fill value=0'
+                state[y:row, x] = value
+                break
+
+    assert (state[:] != 0).all(), 'still have empty space'
+    print(state)
+    return
 
 
-b=nx.Graph()
-for n in range(4,7):
-    b.add_node(n,label=n)
-
-print('None specification')
-print(nx.is_isomorphic(a,b))
-
-print('with node match')
-print(nx.is_isomorphic(a,b,node_match=node_match))
+if __name__=='__main__':
+    tst_complete()
 
