@@ -5,12 +5,12 @@ from copy import deepcopy
 
 
 class Node(object):
-    def __init__(self, state, remain_rooms, init_Q, info, next_positions):
+    def __init__(self, state, remain_rooms, ini_Q, info, next_positions):
         """
 
         :param state: the state matrix of this node
         :param remain_rooms: the remaining_rooms to put into this state
-        :param init_Q: initial Q value
+        :param ini_Q: initial Q value
         :param info: (type, value)
                     if type is 'R', value is None
                     if type is 'X', value is selected end_x
@@ -20,14 +20,15 @@ class Node(object):
         self.state = state
         self.row, self.col = self.state.shape
         self.remain_rooms = remain_rooms
-        self.ini_Q = init_Q
+        self.ini_Q = ini_Q
         self.type = info[0]
         self.value = info[1]
         (self.pos_y, self.pos_x), (self.ori_y_intervals, self.ori_x_intervals) = next_positions
 
         self.N = 0
-        self.Q = init_Q
+        self.Q = 1
         self.W = 0
+        self.expanded = False
 
     def expand(self):
         if self.type in ['X','Y']:
@@ -233,6 +234,42 @@ class Node(object):
 
 
 
+class simulation(object):
+    def __init__(self,rootnode,Cons):
+        self.currentnode = rootnode
+        self.Cons = Cons
+        self.path = [self.currentnode]
+
+    def run(self):
+
+        while True:
+            if not self.currentnode.expanded:
+                self.currentnode.expand()
+
+            if self.currentnode.terminal:
+                all_reward = total_return(self.Cons, self.currentnode.state, self.currentnode.ini_Q)
+                self.backup(all_reward)
+                return
+            else:
+                self.currentnode = self.select(self.currentnode)
+                self.path.append(self.currentnode)
+
+    def backup(self,all_reward):
+        for node in self.path:
+            node.N += 1
+            if node.N == 1:
+                node.Q = all_reward
+            else:
+                if all_reward > node.Q:
+                    node.Q = all_reward
+
+        return
+
+    def select(self,node):
+        sum_N = np.sum([child.N for child in node.children])
+
+        sel_node = max(node.children, key=lambda nd: ( nd.Q + (  np.sqrt(sum_N)  / (1 + nd.N) ) ) )
+        return sel_node
 
 
 
@@ -241,7 +278,7 @@ class Node(object):
 
 
 class MCTS(object):
-    def __init__(self, Cons):
+    def __init__(self, Cons, num_search):
         """
 
         :param Cons: numpy constraints array where -1 means not to be neighbor, +1 means to be neighbor and 0 means no constraints.
@@ -249,7 +286,7 @@ class MCTS(object):
          [0, 0, 1],
          [0, 0, 0]]
 
-         remain_rooms = [1,2,3,...]
+         all_rooms = [1,2,3,...]
 
          state =
          [
@@ -260,8 +297,69 @@ class MCTS(object):
          ]
         """
         assert Cons.shape[0]== Cons.shape[1], 'constraints matrix should have the same dimension on col and row'
-        self.num_rooms = Cons.shape[0]
-        self.Stat = np.zeros(Cons.shape,dtype=np.int32)
+        self.Cons = Cons
+        self.num_search = num_search
+        self.all_rooms = [id for id in range(1, Cons.shape[0]+1)]
+        self.current_node = Node(np.array([[0]]), self.all_rooms, np.count_nonzero(self.Cons), ('R', None), ((None,None),(None,None)) )
+        self.real_path = [self.current_node]
 
     def play(self):
+        while True:
+            self.play_one_move(self.current_node)
+            if self.current_node.terminal:
+                return self.current_node.state, self.current_node.Q
 
+    def play_one_move(self, startnode):
+        for i in range(0,self.num_search):
+            sl = simulation(startnode, self.Cons)
+            sl.run()
+
+        sel_node = max(startnode.children, key=lambda nd:nd.Q)
+        self.current_node = sel_node
+        self.real_path.append(self.current_node)
+        return
+
+
+
+
+def total_return(cons,state, ini_Q):
+    """
+    compare the constraint and state to calculate total return
+    :param cons:
+    [
+    [0, 1, 0, -1],
+    [0, 0, 0, 1],
+    [0, 0, 0, -1],
+    [0, 0, 0, 0]
+    ]
+    1 means must be connected
+    -1 means must be disconnected
+    0 means whatever
+    :param state:
+    :return:
+    """
+    connect = np.full(cons.shape, -1)
+
+    # horizontal connectivity
+    for row in state:
+        pre_id = row[0]
+        for id in row:
+            if id != pre_id:
+                connect[id - 1][pre_id - 1] = 1
+                connect[pre_id - 1][id - 1] = 1
+                pre_id = id
+
+    # vertical connectivity
+    for row in state.T:
+        pre_id = row[0]
+        for id in row:
+            if id != pre_id:
+                connect[id - 1][pre_id - 1] = 1
+                connect[pre_id - 1][id - 1] = 1
+                pre_id = id
+
+    # calculate return
+    reward = np.sum(cons * connect)
+    # scale to between -1 and 1
+    reward = reward / ini_Q
+    return reward
