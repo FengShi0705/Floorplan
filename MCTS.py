@@ -309,6 +309,10 @@ class MCTS(object):
         while True:
             self.play_one_move(self.current_node)
             if self.current_node.terminal:
+                vis_stats = [node.state for node in self.real_path if node.type=='R']
+                vis_stats.pop(0)
+                vis = Visualisation( self.all_rooms, vis_stats, self.Cons, self.current_node.Q )
+                vis.vis_static()
                 return self.current_node.state, self.current_node.Q
 
     def play_one_move(self, startnode):
