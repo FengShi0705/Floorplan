@@ -1,6 +1,8 @@
 
 import numpy as np
 from copy import deepcopy
+from matplotlib.colors import ListedColormap
+import matplotlib.pyplot as plt
 
 
 
@@ -363,3 +365,93 @@ def total_return(cons,state, ini_Q):
     # scale to between -1 and 1
     reward = reward / ini_Q
     return reward
+
+
+class Visualisation(object):
+    def __init__(self, room_ids, states_path, consMat, Q):
+        """
+        visualise a sequence of floorplan states
+        :param room_ids: total room list [1,2,3,4,5,...]
+        :param states_path: a sequence of floorplan states
+        :param consMat: constraint matrix
+        :param Q: final score
+        """
+        self.room_ids = room_ids
+        self.states_path = states_path
+        self.consMat = consMat
+        self.Q = Q
+        self.num_of_frame = len(states_path) + 1
+
+        self.color_map = [(1.,1.,1.)]
+        for n in self.room_ids:
+            self.color_map.append(tuple(np.random.rand(3)))
+
+
+    def vis_static(self):
+        self.size = int( np.ceil(  np.sqrt( self.num_of_frame ) )  )
+        self.fig = plt.figure(figsize=(9,9))
+        self.fig.suptitle('Result score: {}'.format(self.Q))
+
+        # plot state
+        for i,state in enumerate(self.states_path):
+            ax = self.fig.add_subplot(self.size,self.size, i+1)
+            self.show_per_image(ax, state, i+1)
+
+
+        # plot constraint
+        ax = self.fig.add_subplot(self.size,self.size, self.size*self.size)
+        self.show_constraint(ax)
+
+
+
+        plt.show()
+
+    def show_per_image(self,ax,state,i):
+        image = []
+        for row in state:
+            img_row = []
+            for rid in row:
+                img_row.append( self.color_map[rid] )
+            image.append(img_row)
+
+
+        ax.imshow(np.array(image))
+        ax.tick_params(bottom=False, left=False, labelbottom=False,labelleft=False)
+        ax.set_title(i)
+
+        # text annoation
+        for y in range(state.shape[0]):
+            for x in range(state.shape[1]):
+                ax.text(x, y, state[y, x],
+                        ha="center", va="center", color="w")
+
+        return
+
+    def show_constraint(self,ax):
+
+        ax.imshow(self.consMat, cmap='Greys')
+        ax.tick_params(bottom=False, labelbottom=False, top=True, labeltop=True)
+        ax.set_xticks(np.arange(len(self.room_ids)))
+        ax.set_yticks(np.arange(len(self.room_ids)))
+        ax.set_xticklabels(range(1, len(self.room_ids) + 1))
+        ax.set_yticklabels(range(1, len(self.room_ids) + 1))
+        ax.set_xlabel('Constraint Matrix')
+        ax.set_xticks(np.arange(self.consMat.shape[1] + 1) - .5, minor=True)
+        ax.set_yticks(np.arange(self.consMat.shape[0] + 1) - .5, minor=True)
+        ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
+        ax.tick_params(which="minor", bottom=False, left=False)
+
+
+if __name__=='__main__':
+    room_ids = [1, 2, 3, 4, 5, 6]
+    node_path = [
+                 np.array([[0]]),
+                 np.array([[1, 0]]),
+                 np.array([[1, 2, 0]]),
+                 np.array([[1, 2, 3], [0, 0, 3]]),
+                 np.array([[1, 2, 3], [4, 0, 3]]),
+                 np.array([[1, 2, 3], [4, 5, 3], [0, 5, 0]]),
+                 np.array([[1, 2, 3], [4, 5, 3], [6, 5, 5]])
+                 ]
+    vis = Visualisation(room_ids,node_path, np.array([[0,0,0],[1,1,1],[-1,0,-1]]),1)
+    vis.vis_static()
