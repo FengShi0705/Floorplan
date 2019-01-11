@@ -33,6 +33,7 @@ class Node(object):
         self.expanded = False
 
     def expand(self):
+        self.expanded = True
         if self.type in ['X','Y']:
             self.terminal = False
             self.fetch_children()
@@ -136,6 +137,11 @@ class Node(object):
                 new_state = self.create_room(id)
                 child = Node(new_state, remain_rooms, self.ini_Q, ('R', None), ((None,None),(None,None)) )
                 self.children.append(child)
+            #id = self.remain_rooms[0]
+            #remain_rooms = self.remain_rooms[1:]
+            #new_state = self.create_room(id)
+            #child = Node(new_state, remain_rooms, self.ini_Q, ('R', None), ((None,None),(None,None)) )
+            #self.children.append(child)
 
         else:
             raise TypeError('unknown node type')
@@ -219,13 +225,18 @@ class Node(object):
                             self.state[end + 1:start + 1,x+1] = value
 
                         break
+                if y==0:
+                    assert start!= None, 'find empty column which is not the last column'
+                    assert value == self.state[y][x], 'should break'
+                    if (self.state[0:start+1, x+1]==0).all():
+                        self.state[0:start+1, x+1] = value
 
         # complete vertically
         for x in range(0, self.col):
             for y in range(0, self.row):
                 if self.state[y][x] == 0:
                     value = self.state[y-1][x]
-                    assert value!=0, 'vertical fill value=0'
+                    assert value!=0, 'vertical fill value=0, state{}'.format(self.state)
                     self.state[y:self.row, x] = value
                     break
 
@@ -447,6 +458,7 @@ class Visualisation(object):
 
 
 if __name__=='__main__':
+    """
     room_ids = [1, 2, 3, 4, 5, 6]
     node_path = [
                  np.array([[0]]),
@@ -459,3 +471,15 @@ if __name__=='__main__':
                  ]
     vis = Visualisation(room_ids,node_path, np.array([[0,0,0],[1,1,1],[-1,0,-1]]),1)
     vis.vis_static()
+    """
+    Cons = np.array(
+        [
+            [0,1,1,1,1],
+            [0,0,1,-1,1],
+            [0,0,0,1,-1],
+            [0,0,0,0,1],
+            [0,0,0,0,0]
+        ]
+    )
+    Design = MCTS(Cons, 2000)
+    Design.play()
