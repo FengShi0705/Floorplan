@@ -5,6 +5,7 @@ from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
 from datetime import datetime
 import time
+import json
 
 
 
@@ -338,7 +339,7 @@ class MCTS(object):
                 vis_stats = [node.state for node in states_path if node.type == 'R']
                 vis_stats.pop(0)
                 vis = Visualisation( self.all_rooms, vis_stats, self.Cons, self.current_node.Q )
-                vis.vis_static()
+                vis.vis_static('{}search_floorplan.png'.format(self.num_search))
                 return True
 
 
@@ -432,7 +433,7 @@ class Visualisation(object):
             self.color_map.append(tuple(np.random.rand(3)))
 
 
-    def vis_static(self):
+    def vis_static(self,figname):
         self.size = int( np.ceil(  np.sqrt( self.num_of_frame ) )  )
         self.fig = plt.figure(figsize=(9,9))
         self.fig.suptitle('Result score: {}'.format(self.Q))
@@ -448,8 +449,7 @@ class Visualisation(object):
         self.show_constraint(ax)
 
 
-
-        plt.show()
+        self.fig.savefig(figname)
 
     def show_per_image(self,ax,state,i):
         image = []
@@ -518,6 +518,18 @@ if __name__=='__main__':
             [0,0,0,0,0,0,0,0,0,0,0,0]
         ]
     )
-    Design = MCTS(Cons, 500)
-    START_TIME = time.time()
-    Design.play()
+
+    fig, ax = plt.subplots()
+    for n_search in [500,1000]:
+        Design = MCTS(Cons, n_search)
+        START_TIME = time.time()
+        records = Design.play()
+        x = [record[0] for record in records]
+        y = [record[2] for record in records]
+        with open('{}search_records.json'.format(n_search),'w') as f:
+            json.dump(records,f)
+        ax.plot(x,y,'.-',label=n_search)
+
+    ax.legend()
+    fig.savefig('all_records.png')
+
