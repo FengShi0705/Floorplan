@@ -3,6 +3,8 @@ import numpy as np
 from copy import deepcopy
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
+from datetime import datetime
+import time
 
 
 
@@ -261,24 +263,13 @@ class simulation(object):
 
             if self.currentnode.terminal:
                 all_reward = total_return(self.Cons, self.currentnode.state, self.currentnode.ini_Q)
-                self.backup(all_reward)
+                backup(self.path,all_reward)
                 return
             else:
                 self.currentnode = self.select(self.currentnode)
                 self.path.append(self.currentnode)
 
-    def backup(self,all_reward):
-        for node in self.path:
-            node.N += 1
-            #node.W += all_reward
-            #node.Q = node.W/node.N
-            if node.N == 1:
-                node.Q = all_reward
-            else:
-                if all_reward > node.Q:
-                    node.Q = all_reward
 
-        return
 
     def select(self,node):
         sum_N = np.sum([child.N for child in node.children])
@@ -319,26 +310,63 @@ class MCTS(object):
         self.real_path = [self.current_node]
 
     def play(self):
+        self.records = []
+        self.i=0
         while True:
-            self.play_one_move(self.current_node)
+            sign = self.play_one_move(self.current_node)
+            if sign:
+                return self.records
             if self.current_node.terminal:
-                vis_stats = [node.state for node in self.real_path if node.type=='R']
-                vis_stats.pop(0)
-                vis = Visualisation( self.all_rooms, vis_stats, self.Cons, self.current_node.Q )
-                vis.vis_static()
-                return self.current_node.state, self.current_node.Q
+                #backup(self.real_path, self.current_node.Q)
+                self.i += 1
+                record = [ time.time()-START_TIME , self.i, self.current_node.Q]
+                print('time: {}, iter: {}, results: {}'.format(record[0],record[1],record[2]) )
+                self.records.append(record)
+                self.current_node = self.real_path[0]
+                self.real_path = [self.current_node]
 
     def play_one_move(self, startnode):
         for i in range(0,self.num_search):
             sl = simulation(startnode, self.Cons)
             sl.run()
+            #backup(self.real_path, sl.currentnode.Q)
+            if sl.currentnode.Q == 1:
+                record = [time.time()-START_TIME, self.i+1 , 1]
+                print('time:{}, iter:{}, END'.format(record[0],record[1]))
+                self.records.append(record)
+                states_path = self.real_path + sl.path[1:]
+                vis_stats = [node.state for node in states_path if node.type == 'R']
+                vis_stats.pop(0)
+                vis = Visualisation( self.all_rooms, vis_stats, self.Cons, self.current_node.Q )
+                vis.vis_static()
+                return True
+
 
         sel_node = max(startnode.children, key=lambda nd:nd.Q)
         self.current_node = sel_node
         self.real_path.append(self.current_node)
-        return
+        return False
 
 
+
+def backup(path,all_reward):
+    """
+    backup reward to all the nodes in the path
+    :param path:
+    :param all_reward:
+    :return:
+    """
+    for node in path:
+        node.N += 1
+        #node.W += all_reward
+        #node.Q = node.W/node.N
+        if node.N == 1:
+            node.Q = all_reward
+        else:
+            if all_reward > node.Q:
+                node.Q = all_reward
+
+    return
 
 
 def total_return(cons,state, ini_Q):
@@ -490,5 +518,6 @@ if __name__=='__main__':
             [0,0,0,0,0,0,0,0,0,0,0,0]
         ]
     )
-    Design = MCTS(Cons, 20000)
+    Design = MCTS(Cons, 500)
+    START_TIME = time.time()
     Design.play()
