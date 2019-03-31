@@ -4,6 +4,7 @@ from copy import deepcopy
 from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
 from datetime import datetime
+import random
 import time
 import json
 
@@ -251,10 +252,13 @@ class Node(object):
 
 
 class simulation(object):
-    def __init__(self,rootnode,Cons):
+    def __init__(self,rootnode,Cons,sim_rand, avg):
         self.currentnode = rootnode
         self.Cons = Cons
         self.path = [self.currentnode]
+
+        self.sim_rand = sim_rand
+        self.avg = avg
 
     def run(self):
 
@@ -264,7 +268,7 @@ class simulation(object):
 
             if self.currentnode.terminal:
                 all_reward = total_return(self.Cons, self.currentnode.state, self.currentnode.ini_Q)
-                backup(self.path,all_reward)
+                backup(self.path,all_reward, self.avg)
                 return
             else:
                 self.currentnode = self.select(self.currentnode)
@@ -275,7 +279,12 @@ class simulation(object):
     def select(self,node):
         sum_N = np.sum([child.N for child in node.children])
 
-        sel_node = max(node.children, key=lambda nd: ( nd.Q + (  np.sqrt(sum_N)  / (1 + nd.N) ) ) )
+        if self.sim_rand:
+            np.random.shuffle(node.children)
+            #maxval = max([(nd.Q + (np.sqrt(sum_N) / (1 + nd.N))) for nd in node.children])
+            #max_nodes = [nd for nd in node.children if (nd.Q + (np.sqrt(sum_N) / (1 + nd.N))) == maxval]
+            #sel_node = random.choice(max_nodes)
+        sel_node = max(node.children, key=lambda nd: ( nd.Q + EXPLORE_RATE * (  np.sqrt(sum_N)  / (1 + nd.N) ) ) )
         return sel_node
 
 
@@ -285,7 +294,7 @@ class simulation(object):
 
 
 class MCTS(object):
-    def __init__(self, Cons, num_search):
+    def __init__(self, Cons, num_search, caseid, sim_rand=False, play_rand=False, avg=False):
         """
 
         :param Cons: numpy constraints array where -1 means not to be neighbor, +1 means to be neighbor and 0 means no constraints.
@@ -310,8 +319,13 @@ class MCTS(object):
         self.current_node = Node(np.array([[0]]), self.all_rooms, np.count_nonzero(self.Cons), ('R', None), ((None,None),(None,None)) )
         self.real_path = [self.current_node]
 
+        self.sim_rand = sim_rand
+        self.play_rand = play_rand
+        self.case_id = caseid
+        self.avg =avg
+
     def play(self):
-        self.records = []
+        self.records = [[0,0,0]]
         self.i=0
         while True:
             sign = self.play_one_move(self.current_node)
@@ -320,52 +334,81 @@ class MCTS(object):
             if self.current_node.terminal:
                 #backup(self.real_path, self.current_node.Q)
                 self.i += 1
+
                 record = [ time.time()-START_TIME , self.i, self.current_node.Q]
                 print('time: {}, iter: {}, results: {}'.format(record[0],record[1],record[2]) )
                 self.records.append(record)
-                self.current_node = self.real_path[0]
-                self.real_path = [self.current_node]
+
+                #vis
+                #states_path = self.real_path
+                #vis_stats = [node.state for node in states_path if node.type == 'R']
+                #vis_stats.pop(0)
+                #vis = Visualisation(self.all_rooms, vis_stats, self.Cons, self.current_node.Q)
+                #vis.vis_static('{}search_rate_{}_iter_{}.png'.format(self.num_search, 2, self.i))
+
+                if record[0]>3000:
+                    print('Endless')
+                    return self.records
+                else:
+                    self.current_node = self.real_path[0]
+                    self.real_path = [self.current_node]
 
     def play_one_move(self, startnode):
         for i in range(0,self.num_search):
-            sl = simulation(startnode, self.Cons)
+            sl = simulation(startnode, self.Cons, self.sim_rand, self.avg)
             sl.run()
             #backup(self.real_path, sl.currentnode.Q)
             if sl.currentnode.Q == 1:
-                record = [time.time()-START_TIME, self.i+1 , 1]
-                print('time:{}, iter:{}, END'.format(record[0],record[1]))
+
+                record = [time.time()-START_TIME, self.i+1 , sl.currentnode.Q]
+                print('time:{}, iter:{}, END_{}'.format(record[0],record[1], record[2]))
                 self.records.append(record)
+
                 states_path = self.real_path + sl.path[1:]
                 vis_stats = [node.state for node in states_path if node.type == 'R']
                 vis_stats.pop(0)
-                vis = Visualisation( self.all_rooms, vis_stats, self.Cons, self.current_node.Q )
-                vis.vis_static('{}search_floorplan.png'.format(self.num_search))
+                vis = Visualisation( self.all_rooms, vis_stats, self.Cons, sl.currentnode.Q )
+                vis.vis_static('{}search_{}simrand_{}playrand_{}avg_{}caseid_{}exp.png'.format(self.num_search,self.sim_rand,self.play_rand, self.avg, self.case_id,EXPLORE_RATE))
                 return True
+
+        if self.play_rand:
+            np.random.shuffle(startnode.children)
+            #maxval = max([nd.Q for nd in startnode.children])
+            #maxelements = [nd for nd in startnode.children if nd.Q == maxval]
+            #sel_node = random.choice(maxelements)
 
 
         sel_node = max(startnode.children, key=lambda nd:nd.Q)
+        #sum_N = np.sum([child.N for child in startnode.children])
+        #sel_node = max(startnode.children, key=lambda nd: (nd.Q + EXPLORE_RATE * (np.sqrt(sum_N) / (1 + nd.N))))
         self.current_node = sel_node
         self.real_path.append(self.current_node)
         return False
 
 
 
-def backup(path,all_reward):
+def backup(path,all_reward,avg = False):
     """
     backup reward to all the nodes in the path
     :param path:
     :param all_reward:
     :return:
     """
-    for node in path:
-        node.N += 1
-        #node.W += all_reward
-        #node.Q = node.W/node.N
-        if node.N == 1:
-            node.Q = all_reward
-        else:
-            if all_reward > node.Q:
+    if avg:
+        for node in path:
+            node.N += 1
+            node.W += all_reward
+            node.Q = node.W/node.N
+    else:
+        for node in path:
+            node.N += 1
+            #node.W += all_reward
+            #node.Q = node.W/node.N
+            if node.N == 1:
                 node.Q = all_reward
+            else:
+                if all_reward > node.Q:
+                    node.Q = all_reward
 
     return
 
@@ -488,48 +531,116 @@ class Visualisation(object):
 
 
 if __name__=='__main__':
-    """
-    room_ids = [1, 2, 3, 4, 5, 6]
-    node_path = [
-                 np.array([[0]]),
-                 np.array([[1, 0]]),
-                 np.array([[1, 2, 0]]),
-                 np.array([[1, 2, 3], [0, 0, 3]]),
-                 np.array([[1, 2, 3], [4, 0, 3]]),
-                 np.array([[1, 2, 3], [4, 5, 3], [0, 5, 0]]),
-                 np.array([[1, 2, 3], [4, 5, 3], [6, 5, 5]])
-                 ]
-    vis = Visualisation(room_ids,node_path, np.array([[0,0,0],[1,1,1],[-1,0,-1]]),1)
-    vis.vis_static()
-    """
-    Cons = np.array(
+
+    # case 1 constraints without nonadjacency requirements
+
+    Cons1 = np.array(
         [
-            [0,1,1,-1,-1,-1,1,-1,-1,-1,-1,-1],
-            [0,0,1,1,1,-1,-1,-1,-1,-1,-1,-1],
-            [0,0,0,1,-1,-1,1,1,1,-1,-1,-1],
-            [0,0,0,0,1,1,-1,-1,1,-1,-1,-1],
-            [0,0,0,0,0,1,-1,-1,-1,-1,-1,-1],
-            [0,0,0,0,0,0,-1,-1,1,-1,-1,-1],
-            [0,0,0,0,0,0,0,1,-1,-1,-1,1],
-            [0,0,0,0,0,0,0,0,1,1,-1,1],
-            [0,0,0,0,0,0,0,0,0,1,1,-1],
-            [0,0,0,0,0,0,0,0,0,0,1,1],
-            [0,0,0,0,0,0,0,0,0,0,0,1],
-            [0,0,0,0,0,0,0,0,0,0,0,0]
+            [0,1,1,1,1,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,1],
+            [0,0,0,0,0,1,0,0,0],
+            [0,0,0,0,0,1,1,1,1],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,1,0],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0]
         ]
     )
 
-    fig, ax = plt.subplots()
-    for n_search in [500,1000]:
-        Design = MCTS(Cons, n_search)
-        START_TIME = time.time()
-        records = Design.play()
-        x = [record[0] for record in records]
-        y = [record[2] for record in records]
-        with open('{}search_records.json'.format(n_search),'w') as f:
-            json.dump(records,f)
-        ax.plot(x,y,'.-',label=n_search)
 
-    ax.legend()
-    fig.savefig('all_records.png')
+
+    # case 1 constraints with nonadjacency requirements
+    Cons1_non = np.array(
+        [
+            [0,1,1,1,1,-1,-1,-1,-1],
+            [0,0,-1,0,-1,-1,-1,-1,-1],
+            [0,0,0,-1,0,-1,-1,-1,1],
+            [0,0,0,0,-1,1,-1,-1,-1],
+            [0,0,0,0,0,1,1,1,1],
+            [0,0,0,0,0,0,0,-1,-1],
+            [0,0,0,0,0,0,0,1,-1],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0]
+        ]
+    )
+
+
+    # case 2 constraints with nonadajency requirements
+    Cons2_non = np.array(
+        [
+            [0,1,1,-1,-1,-1, 1,-1,-1,-1,-1,-1],
+            [0,0,1, 1, 1,-1,-1,-1,-1,-1,-1,-1],
+            [0,0,0, 1,-1,-1, 1, 1, 1,-1,-1,-1],
+            [0,0,0, 0, 1, 1,-1,-1, 1,-1,-1,-1],
+            [0,0,0, 0, 0, 1,-1,-1,-1,-1,-1,-1],
+            [0,0,0, 0, 0, 0,-1,-1, 1,-1,-1,-1],
+            [0,0,0, 0, 0, 0, 0, 1,-1,-1,-1, 1],
+            [0,0,0, 0, 0, 0, 0, 0, 1, 1,-1, 1],
+            [0,0,0, 0, 0, 0, 0, 0, 0, 1, 1,-1],
+            [0,0,0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            [0,0,0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [0,0,0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        ]
+    )
+
+    # case 2 constraints without non adjacency
+    Cons2 = Cons2_non==1
+    Cons2 = Cons2.astype(int)
+
+
+
+    # experiment setting for case 1
+    #EXPLORE_RATE = 1.0
+    #case = 1
+    #configs = [ {'n_search':250, 'cons':Cons1, 'color':'r', 'sim_rand':False, 'play_rand':True, 'case':'1', 'label':'without_nonadj'},
+    #            {'n_search':1000, 'cons':Cons1_non, 'color':'b', 'sim_rand':False, 'play_rand':True, 'case':'1non', 'label':'with_nonadj'}
+    #            ]
+    #options = [
+    #    {'avg':False, 'line_style':'.-', 'algorithm':'our'},
+    #    {'avg': True, 'line_style': '<:', 'algorithm':'on-policy'},
+    #]
+
+    # experiment setting for case 2
+    rates_set = [1.0,2.0]
+    search_set = [1000,2000,3000,5000]
+    case = 2
+    configs = [{'cons': Cons2, 'color': 'r', 'sim_rand': False, 'play_rand': False, 'case': '2',
+                'label': 'without_nonadj'},
+               {'cons': Cons2_non, 'color': 'b', 'sim_rand': False, 'play_rand': False, 'case': '2non',
+                'label': 'with_nonadj'}
+               ]
+    options = [
+        {'avg': False, 'line_style': '.-', 'algorithm': 'our'},
+        {'avg': True, 'line_style': '<:', 'algorithm': 'on-policy'},
+    ]
+
+
+    # run and plot
+    for EXPLORE_RATE in rates_set:
+        for n_search in search_set:
+
+            fig, ax = plt.subplots()
+
+            for config in configs:
+                for option in options:
+                    print('---------')
+                    print('explore rate:', EXPLORE_RATE)
+                    print('n_search:', n_search )
+                    print('config', config)
+                    print('option', option)
+                    Design = MCTS(config['cons'], n_search, caseid=config['case'], sim_rand=config['sim_rand'],play_rand=config['play_rand'], avg=option['avg'],)
+                    START_TIME = time.time()
+                    records = Design.play()
+                    x = [record[0] for record in records]
+                    y = [record[2] for record in records]
+                    with open('{}search_{}simrand_{}playrand_{}avg_{}caseid_{}exp.json'.format(n_search,config['sim_rand'],config['play_rand'],option['avg'], config['case'],EXPLORE_RATE),'w') as f:
+                        json.dump(records,f)
+                    ax.plot(x,y,option['line_style'], label='{}_N={}_{}'.format(option['algorithm'], n_search, config['label']), color=config['color'])
+
+
+            ax.legend()
+            ax.set_xlabel('time (s)')
+            ax.set_ylabel('Reward at each replay')
+            fig.savefig('all_records_{}caseid_{}explor_{}search.png'.format(case,EXPLORE_RATE,n_search))
 
