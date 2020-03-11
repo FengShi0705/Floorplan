@@ -340,11 +340,11 @@ class MCTS(object):
                 self.records.append(record)
 
                 #vis
-                #states_path = self.real_path
-                #vis_stats = [node.state for node in states_path if node.type == 'R']
-                #vis_stats.pop(0)
-                #vis = Visualisation(self.all_rooms, vis_stats, self.Cons, self.current_node.Q)
-                #vis.vis_static('{}search_rate_{}_iter_{}.png'.format(self.num_search, 2, self.i))
+                states_path = self.real_path
+                vis_stats = [node.state for node in states_path if node.type == 'R']
+                vis_stats.pop(0)
+                vis = Visualisation(self.all_rooms, vis_stats, self.Cons, self.current_node.Q)
+                vis.vis_static('{}search_rate_{}_iter_{}.png'.format(self.num_search, 2, self.i))
 
                 if record[0]>3000:
                     print('Endless')
@@ -602,13 +602,79 @@ if __name__=='__main__':
     #]
 
     # experiment setting for case 2
-    rates_set = [1.0,2.0]
-    search_set = [1000,2000,3000,5000]
-    case = 2
-    configs = [{'cons': Cons2, 'color': 'r', 'sim_rand': False, 'play_rand': False, 'case': '2',
+    #rates_set = [1.0,2.0]
+    #search_set = [1000,2000,3000,5000]
+    #case = 2
+    #configs = [{'cons': Cons2, 'color': 'r', 'sim_rand': False, 'play_rand': False, 'case': '2',
+    #            'label': 'without_nonadj'},
+    #           {'cons': Cons2_non, 'color': 'b', 'sim_rand': False, 'play_rand': False, 'case': '2non',
+    #            'label': 'with_nonadj'}
+    #           ]
+    #options = [
+    #    {'avg': False, 'line_style': '.-', 'algorithm': 'our'},
+    #    {'avg': True, 'line_style': '<:', 'algorithm': 'on-policy'},
+    #]
+
+    # experiment setting for reviewer
+    ConsR1 = np.array(
+        [
+            [0, 1, 1, 1, 0, 0, 0],
+            [0, 0, 1, 1, 0, 1, 1],
+            [0, 0, 0, 1, 1, 1, 1],
+            [0, 0, 0, 0, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0, 0],
+        ]
+    )
+
+    ConsR2 = np.array(
+        [
+            [0, 1, 1, -1, -1, -1, -1, -1],
+            [0, 0, -1, 1, -1, -1, -1, -1],
+            [0, 0, 0,  1,  1, -1, -1, -1],
+            [0, 0, 0,  0, -1,  1, -1, -1],
+            [0, 0, 0,  0,  0,  1,  1, -1],
+            [0, 0, 0,  0,  0,  0,  1,  1],
+            [0, 0, 0,  0,  0,  0,  0, -1],
+            [0, 0, 0,  0,  0,  0,  0,  0]
+        ]
+    )
+
+    ConsR3 = np.array(
+        [
+            [0, 1, 0, 1, 0, 1],
+            [0, 0, 1, 0, 0, 1],
+            [0, 0, 0, 1, 0, 1],
+            [0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0],
+        ]
+    )
+
+    ConsR4 = np.array(
+        [
+            [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        ]
+    )
+
+    rates_set = [1.0, 2.0]
+    search_set = [2000]
+    case = 'R1'
+    configs = [{'cons': ConsR4, 'color': 'r', 'sim_rand': False, 'play_rand': False, 'case': 'R1',
                 'label': 'without_nonadj'},
-               {'cons': Cons2_non, 'color': 'b', 'sim_rand': False, 'play_rand': False, 'case': '2non',
-                'label': 'with_nonadj'}
                ]
     options = [
         {'avg': False, 'line_style': '.-', 'algorithm': 'our'},

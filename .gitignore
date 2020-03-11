@@ -10,3 +10,5 @@ all_records.png
 500search_floorplan.png
 1000search_records.json
 1000search_floorplan.png
+*.png
+*.json
