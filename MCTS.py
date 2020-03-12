@@ -670,10 +670,32 @@ if __name__=='__main__':
         ]
     )
 
-    rates_set = [1.0, 2.0]
-    search_set = [2000]
+    ConsR5 = np.array(
+        [
+            [0, 1, -1, -1, -1],
+            [0, 0,  1, -1,  1],
+            [0, 0,  0,  1,  1],
+            [0, 0,  0,  0, -1],
+            [0, 0,  0,  0,  0]
+        ]
+    )
+
+    ConsR6 = np.array(
+        [
+            [0, 1, 1, -1, -1, -1, -1],
+            [0, 0, 1, -1, -1, -1, -1],
+            [0, 0, 0,  1, -1, -1, -1],
+            [0, 0, 0,  0,  1,  1, -1],
+            [0, 0, 0,  0,  0,  1,  1],
+            [0, 0, 0,  0,  0,  0,  1],
+            [0, 0, 0,  0,  0,  0,  0],
+        ]
+    )
+
+    rates_set = [2.0]
+    search_set = [5000]
     case = 'R1'
-    configs = [{'cons': ConsR4, 'color': 'r', 'sim_rand': False, 'play_rand': False, 'case': 'R1',
+    configs = [{'cons': ConsR6, 'color': 'r', 'sim_rand': False, 'play_rand': False, 'case': 'R1',
                 'label': 'without_nonadj'},
                ]
     options = [
